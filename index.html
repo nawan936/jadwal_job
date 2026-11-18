@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LensaStudio — Jadwal Job Foto & Cek Jam Kosong</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            background-color: #000000;
+            color: #f5f5f7;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .apple-card {
+            background-color: #1c1c1e;
+            border: 1px solid #2c2c2e;
+            border-radius: 14px;
+        }
+        .apple-input {
+            background-color: #2c2c2e;
+            border: 1px solid #3a3a3c;
+            color: #ffffff;
+        }
+        .apple-input:focus {
+            border-color: #0a84ff;
+            outline: none;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border-bottom: 1px solid #2c2c2e;
+        }
+        tr.job-row:hover {
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+        /* Custom sleek scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3a3a3c;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+
+    <!-- Top Apple Notes Style Header -->
+    <header class="sticky top-0 z-30 bg-black/85 backdrop-blur-md border-b border-[#2c2c2e] px-4 py-3.5">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                    <i class="fa-solid fa-camera-retro text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-tight text-white">Lensa<span class="text-amber-400">Studio</span></h1>
+                    <p class="text-xs text-zinc-400">Jadwal Pemotretan & Cek Slot Jam Kosong</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                <button onclick="openModal()" class="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-3.5 py-2 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Job Baru</span>
+                </button>
+                <button onclick="exportData()" class="bg-[#1c1c1e] hover:bg-[#2c2c2e] border border-[#3a3a3c] text-zinc-200 px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5" title="Download Backup JSON">
+                    <i class="fa-solid fa-download text-blue-400"></i>
+                    <span class="hidden md:inline">Backup</span>
+                </button>
+                <label class="bg-[#1c1c1e] hover:bg-[#2c2c2e] border border-[#3a3a3c] text-zinc-200 px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer" title="Restore dari File JSON">
+                    <i class="fa-solid fa-upload text-emerald-400"></i>
+                    <span class="hidden md:inline">Restore</span>
+                    <input type="file" id="importFile" onchange="importData(event)" class="hidden" accept=".json">
+                </label>
+                <button onclick="confirmResetData()" class="bg-[#1c1c1e] hover:bg-rose-950/50 border border-[#3a3a3c] hover:border-rose-800 text-zinc-400 hover:text-rose-400 px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5" title="Reset ke 28 Data Awal">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span class="hidden lg:inline">Reset Awal</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-5">
+
+        <!-- Summary Cards -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="apple-card p-4">
+                <span class="text-xs text-zinc-400 block">Total Jadwal Klien</span>
+                <div class="mt-1 flex items-baseline gap-2">
+                    <span id="statTotal" class="text-2xl font-bold text-white">0</span>
+                    <span class="text-xs text-zinc-500">sesi</span>
+                </div>
+            </div>
+            <div class="apple-card p-4">
+                <span class="text-xs text-zinc-400 block">Sudah DP / Lunas</span>
+                <div class="mt-1 flex items-baseline gap-2">
+                    <span id="statDpCount" class="text-2xl font-bold text-emerald-400">0</span>
+                    <span class="text-xs text-zinc-500">terkunci</span>
+                </div>
+            </div>
+            <div class="apple-card p-4">
+                <span class="text-xs text-zinc-400 block">Total Nominal DP</span>
+                <div class="mt-1">
+                    <span id="statDpTotal" class="text-xl sm:text-2xl font-bold text-amber-400">Rp 0</span>
+                </div>
+            </div>
+            <div class="apple-card p-4">
+                <span class="text-xs text-zinc-400 block">Cek Tanggal Cepat</span>
+                <div class="mt-1.5 relative">
+                    <input type="text" id="filterDateInput" placeholder="Ketik tgl: 28, 21 Nov, 14..." oninput="handleDateInput()" class="apple-input w-full px-3 py-1.5 rounded-lg text-xs sm:text-sm">
+                    <button id="btnClearDate" onclick="selectDatePill('ALL')" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Date Filter Pills -->
+        <section class="apple-card p-3.5 space-y-2.5">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
+                    <i class="fa-regular fa-calendar text-amber-400"></i>
+                    Pilih Tanggal untuk Filter & Cek Jam Kosong:
+                </span>
+                <span id="recordCount" class="text-xs text-zinc-500">28 jadwal</span>
+            </div>
+            <div id="datePillsContainer" class="flex flex-wrap gap-1.5">
+                <!-- Rendered dynamically -->
+            </div>
+        </section>
+
+        <!-- Smart Empty Slot Checker & Overlap Detector Panel -->
+        <section id="slotCheckerContainer" class="hidden apple-card p-4 sm:p-5 border-amber-500/40 bg-gradient-to-b from-[#1c1c1e] to-[#141416] space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#2c2c2e] pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                        <i class="fa-regular fa-clock"></i>
+                    </div>
+                    <div>
+                        <h2 id="slotCheckerTitle" class="font-bold text-sm sm:text-base text-white">Cek Slot Jam Kosong</h2>
+                        <p class="text-xs text-zinc-400">Otomatis mendeteksi jam terisi, jadwal bentrok, dan jam tersedia</p>
+                    </div>
+                </div>
+                <button onclick="copyEmptySlotsWA()" class="self-start sm:self-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+                    <i class="fa-brands fa-whatsapp text-sm"></i>
+                    <span>Salin Jam Kosong (WA)</span>
+                </button>
+            </div>
+
+            <!-- Conflict Alert if any on this date -->
+            <div id="dateConflictAlert" class="hidden bg-rose-950/50 border border-rose-700/60 rounded-xl p-3 text-xs text-rose-200 flex items-start gap-2.5">
+                <i class="fa-solid fa-triangle-exclamation text-rose-400 mt-0.5 text-sm shrink-0"></i>
+                <div id="dateConflictText"></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Occupied Slots -->
+                <div class="bg-black/60 p-3.5 rounded-xl border border-[#2c2c2e] space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Sudah Terisi (<span id="occupiedCount">0</span>)</span>
+                        <span class="text-[11px] text-zinc-500">Urut waktu</span>
+                    </div>
+                    <div id="filledSlotsList" class="space-y-1.5 text-xs sm:text-sm"></div>
+                </div>
+
+                <!-- Free Hourly Slots -->
+                <div class="bg-black/60 p-3.5 rounded-xl border border-[#2c2c2e] space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Jam Kosong / Tersedia (02.00 – 21.00)</span>
+                        <span class="text-[11px] text-zinc-400">Klik slot untuk booking</span>
+                    </div>
+                    <div id="emptySlotsList" class="flex flex-wrap gap-1.5"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search & Status Filter Bar -->
+        <section class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div class="relative flex-1 max-w-md">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-xs"></i>
+                <input type="text" id="searchInput" placeholder="Cari nama klien, lokasi (Villa, Kraton...), acara..." oninput="applyFilter()" class="apple-input w-full pl-9 pr-4 py-2.5 rounded-xl text-xs sm:text-sm">
+            </div>
+            <div class="flex items-center gap-2">
+                <select id="filterDpSelect" onchange="applyFilter()" class="apple-input px-3 py-2.5 rounded-xl text-xs sm:text-sm">
+                    <option value="ALL">Semua Status DP</option>
+                    <option value="DP_ONLY">Sudah DP / Lunas</option>
+                    <option value="NO_DP">Belum DP</option>
+                </select>
+                <button onclick="resetAllFilters()" class="bg-[#1c1c1e] hover:bg-[#2c2c2e] border border-[#3a3a3c] text-zinc-300 px-3 py-2.5 rounded-xl text-xs transition">
+                    Reset
+                </button>
+            </div>
+        </section>
+
+        <!-- Apple Notes Pure Dark Table -->
+        <section class="apple-card overflow-hidden shadow-xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs sm:text-sm">
+                    <thead class="bg-[#2c2c2e]/60 text-zinc-400 text-[11px] sm:text-xs uppercase tracking-wider border-b border-[#38383a]">
+                        <tr>
+                            <th class="py-3.5 px-3.5 font-semibold whitespace-nowrap">Tanggal</th>
+                            <th class="py-3.5 px-3.5 font-semibold whitespace-nowrap">Waktu</th>
+                            <th class="py-3.5 px-3.5 font-semibold whitespace-nowrap">Klien</th>
+                            <th class="py-3.5 px-3.5 font-semibold whitespace-nowrap">Acara</th>
+                            <th class="py-3.5 px-3.5 font-semibold whitespace-nowrap">Platform</th>
+                            <th class="py-3.5 px-3.5 font-semibold whitespace-nowrap">Lokasi</th>
+                            <th class="py-3.5 px-3.5 font-semibold whitespace-nowrap">DP / Status</th>
+                            <th class="py-3.5 px-3.5 font-semibold text-center whitespace-nowrap">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-[#2c2c2e]">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: Add / Edit Job -->
+    <div id="jobModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="apple-card w-full max-w-lg bg-[#1c1c1e] p-6 shadow-2xl border border-[#3a3a3c] space-y-4">
+            <div class="flex justify-between items-center border-b border-[#2c2c2e] pb-3">
+                <h3 id="modalTitle" class="font-bold text-base sm:text-lg text-white">Tambah Jadwal Baru</h3>
+                <button onclick="closeModal()" class="text-zinc-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form id="jobForm" onsubmit="saveJob(event)" class="space-y-3.5">
+                <input type="hidden" id="jobId">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-zinc-400 mb-1">Tanggal *</label>
+                        <input type="text" id="formDate" required placeholder="Cth: Sabtu, 28 Nov" class="apple-input w-full p-2.5 rounded-xl text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-zinc-400 mb-1">Waktu *</label>
+                        <input type="text" id="formTime" required placeholder="Cth: 08.00 – 09.00" class="apple-input w-full p-2.5 rounded-xl text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-zinc-400 mb-1">Nama Klien *</label>
+                        <input type="text" id="formClient" required placeholder="Nama klien" class="apple-input w-full p-2.5 rounded-xl text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-zinc-400 mb-1">Acara</label>
+                        <input type="text" id="formEvent" placeholder="Wisuda / Wedding / Prewed" class="apple-input w-full p-2.5 rounded-xl text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-zinc-400 mb-1">Platform</label>
+                        <input type="text" id="formPlatform" placeholder="Ig / Wa / TikTok / UMB" class="apple-input w-full p-2.5 rounded-xl text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-zinc-400 mb-1">Lokasi</label>
+                        <input type="text" id="formLocation" placeholder="Villa nirwana / Kraton / dll" class="apple-input w-full p-2.5 rounded-xl text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-zinc-400 mb-1">DP / Status Pembayaran</label>
+                    <input type="text" id="formDp" placeholder="DP 100k / Lunas / Belum DP" class="apple-input w-full p-2.5 rounded-xl text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-3 border-t border-[#2c2c2e]">
+                    <button type="button" onclick="closeModal()" class="bg-[#2c2c2e] hover:bg-[#3a3a3c] text-zinc-300 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition">Batal</button>
+                    <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-black px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition">Simpan Jadwal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="apple-card w-full max-w-sm bg-[#1c1c1e] p-6 text-center space-y-4 border border-[#3a3a3c]">
+            <div class="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-400 mx-auto flex items-center justify-center">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+            </div>
+            <div>
+                <h3 id="confirmTitle" class="font-bold text-base text-white">Konfirmasi</h3>
+                <p id="confirmMessage" class="text-xs text-zinc-400 mt-1">Apakah Anda yakin?</p>
+            </div>
+            <div class="flex gap-2 pt-1">
+                <button onclick="closeConfirmModal()" class="flex-1 py-2.5 rounded-xl bg-[#2c2c2e] hover:bg-[#3a3a3c] text-xs font-semibold text-zinc-200 transition">Batal</button>
+                <button id="confirmYesBtn" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white transition">Ya, Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-[#2c2c2e] text-white px-4 py-3 rounded-xl shadow-2xl border border-[#3a3a3c] flex items-center gap-2.5 text-xs sm:text-sm font-medium">
+            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+            <span id="toastText">Berhasil</span>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // 1. EXACT 28 SCHEDULE ENTRIES (CLEANED DATES & EXTRACTED DP STATUS)
+        // =========================================================================
+        const STORAGE_KEY = 'nawan_jobs_v3';
+
+        const INITIAL_JOBS = [
+            { id: 1,  date: "Sabtu, 14 Nov",  time: "06.00 – 07.00",           client: "Appa",           event: "Wisuda",  platform: "Ig",        location: "Villa nirwana",    dp: "-" },
+            { id: 2,  date: "Sabtu, 14 Nov",  time: "14.00 – 15.00",           client: "Del",            event: "Wisuda",  platform: "Wa",        location: "Villa nirwana",    dp: "-" },
+            { id: 3,  date: "Sabtu, 14 Nov",  time: "15.30 – 17.30",           client: "Falidia",        event: "Wisuda",  platform: "TikTok",    location: "Villa dan Kraton", dp: "-" },
+            { id: 4,  date: "Sabtu, 14 Nov",  time: "17.30 – 19.30",           client: "Feby",           event: "Wisuda",  platform: "Wa",        location: "Villa dan",        dp: "-" },
+            { id: 5,  date: "Sabtu, 14 Nov",  time: "20.00 – 21.00",           client: "Jeje",           event: "Wisuda",  platform: "Wa",        location: "Villa nirwana",    dp: "-" },
+            { id: 6,  date: "Senin, 9 Nov",   time: "-",                       client: "Yas",            event: "Prewed",  platform: "Wa",        location: "-",                dp: "-" },
+            { id: 7,  date: "Minggu, 15 Nov", time: "-",                       client: "Deby",           event: "Ultah",   platform: "Wa",        location: "Cobek",            dp: "-" },
+            { id: 8,  date: "Minggu, 15 Nov", time: "Jam 6 sore (18.00)",      client: "Rizal",          event: "Wisuda",  platform: "Ig",        location: "-",                dp: "-" },
+            { id: 9,  date: "Minggu, 15 Nov", time: "Pagi",                    client: "Rika rahayu",    event: "-",       platform: "-",         location: "-",                dp: "-" },
+            { id: 10, date: "Minggu, 15 Nov", time: "10 pagi (10.00)",         client: "Nanda",          event: "Wisuda",  platform: "Wa",        location: "Villa",            dp: "-" },
+            { id: 11, date: "Senin, 16 Nov",  time: "-",                       client: "Ry",             event: "Wisuda",  platform: "Instagram", location: "-",                dp: "-" },
+            { id: 12, date: "Sabtu, 21 Nov",  time: "03.00 – 04.00",           client: "Ratu",           event: "Wisuda",  platform: "Ig",        location: "-",                dp: "-" },
+            { id: 13, date: "Sabtu, 21 Nov",  time: "02.00 – 03.00",           client: "Dita",           event: "Wisuda",  platform: "TikTok",    location: "-",                dp: "-" },
+            { id: 14, date: "Sabtu, 21 Nov",  time: "04.00 – 05.00",           client: "Faza",           event: "Wisuda",  platform: "TikTok",    location: "Kraton",           dp: "DP 100k" },
+            { id: 15, date: "Sabtu, 21 Nov",  time: "05.00 – 06.00",           client: "Nandini",        event: "Wisuda",  platform: "UMB",       location: "Villa nirwana",    dp: "DP 100k" },
+            { id: 16, date: "Sabtu, 21 Nov",  time: "06.00 - 07.30",           client: "Salsa",          event: "Wisuda",  platform: "Instagram", location: "Villa nirwana",    dp: "DP 100k" },
+            { id: 17, date: "Sabtu, 21 Nov",  time: "07.00 - 08.30",           client: "Yuni",           event: "Wisuda",  platform: "Instagram", location: "Kantor walikota",  dp: "DP 100k" },
+            { id: 18, date: "Sabtu, 20 Nov",  time: "04.30",                   client: "Nur",            event: "Wisuda",  platform: "Instagram", location: "-",                dp: "-" },
+            { id: 19, date: "Sabtu, 28 Nov",  time: "Jam 2 (14.00)",           client: "Indri",          event: "Wisuda",  platform: "TikTok",    location: "-",                dp: "-" },
+            { id: 20, date: "Sabtu, 28 Nov",  time: "16.00 (4 Sore)",          client: "Fan",            event: "Wisuda",  platform: "Instagram", location: "Villa nirwana",    dp: "-" },
+            { id: 21, date: "Sabtu, 28 Nov",  time: "17.00 (Jam 5)",           client: "Yun",            event: "Wisuda",  platform: "Wa",        location: "-",                dp: "-" },
+            { id: 22, date: "Sabtu, 28 Nov",  time: "16.00 - 18.00 (jam 6)",   client: "Hardiyanti",     event: "Wisuda",  platform: "Wa",        location: "-",                dp: "-" },
+            { id: 23, date: "Sabtu, 28 Nov",  time: "15.00",                   client: "Eby",            event: "Wisuda",  platform: "TikTok",    location: "-",                dp: "DP 100k" },
+            { id: 24, date: "Sabtu, 28 Nov",  time: "Jam 2 siang (14.00)",     client: "Anisa",          event: "Wisuda",  platform: "Wa",        location: "-",                dp: "DP 100k" },
+            { id: 25, date: "Sabtu, 28 Nov",  time: "Pagi",                    client: "Lylyw",          event: "Wisuda",  platform: "Tiktok",    location: "-",                dp: "-" },
+            { id: 26, date: "Sabtu, 19 Des",  time: "-",                       client: "Wa ode septiya", event: "Wisuda",  platform: "Ig",        location: "-",                dp: "-" },
+            { id: 27, date: "Sabtu, 19 Des",  time: "-",                       client: "Nahu",           event: "Wisuda",  platform: "TikTok",    location: "-",                dp: "-" },
+            { id: 28, date: "Rabu, 23 Des",   time: "-",                       client: "Yusrida",        event: "Wedding", platform: "Wa",        location: "-",                dp: "-" }
+        ];
+
+        let jobs = [];
+        let activeDateFilter = 'ALL';
+        let lastComputedFreeSlots = [];
+        let lastCheckedDateLabel = '';
+
+        // =========================================================================
+        // 2. STORAGE & INIT
+        // =========================================================================
+        function loadJobs() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        jobs = parsed;
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            jobs = JSON.parse(JSON.stringify(INITIAL_JOBS));
+            saveJobs();
+        }
+
+        function saveJobs() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+            } catch (e) {
+                showToast('Gagal menyimpan ke browser');
+            }
+        }
+
+        // =========================================================================
+        // 3. NATURAL INDONESIAN TIME PARSER (ACCURATE SLOT & OVERLAP DETECTION)
+        // =========================================================================
+        /**
+         * Mengubah format waktu Indonesia seperti:
+         * - "06.00 – 07.00" -> start: 360 (06:00), end: 420 (07:00)
+         * - "Jam 2 (14.00)" / "Jam 2 siang" -> start: 840 (14:00), end: 900 (15:00)
+         * - "16.00 - 18.00 (jam 6)" -> start: 960 (16:00), end: 1080 (18:00)
+         * - "Jam 6 sore (18.00)" -> start: 1080 (18:00), end: 1140 (19:00)
+         * - "10 pagi (10.00)" -> start: 600 (10:00), end: 660 (11:00)
+         * - "Pagi" -> general note (tidak mengunci 1 jam spesifik)
+         */
+        function parseIndonesianTime(timeStr) {
+            if (!timeStr || timeStr.trim() === '-' || timeStr.trim() === '') {
+                return { start: 9999, end: 9999, isExact: false, label: '-' };
+            }
+            const clean = timeStr.toLowerCase().trim();
+
+            // 1. Cari semua pola HH.MM atau HH:MM (misal 06.00, 14.00, 17.30)
+            const hhmmMatches = [...clean.matchAll(/\b(\d{1,2})[.:](\d{2})\b/g)];
+            if (hhmmMatches.length >= 2) {
+                const h1 = parseInt(hhmmMatches[0][1], 10);
+                const m1 = parseInt(hhmmMatches[0][2], 10);
+                const h2 = parseInt(hhmmMatches[1][1], 10);
+                const m2 = parseInt(hhmmMatches[1][2], 10);
+                const start = h1 * 60 + m1;
+                const end = h2 * 60 + m2;
+                return {
+                    start,
+                    end: end > start ? end : start + 60,
+                    isExact: true,
+                    label: timeStr
+                };
+            } else if (hhmmMatches.length === 1) {
+                const h1 = parseInt(hhmmMatches[0][1], 10);
+                const m1 = parseInt(hhmmMatches[0][2], 10);
+                const start = h1 * 60 + m1;
+
+                // Cek apakah ada kata "jam X" sebagai akhir rentang, contoh "16.00 jam 6"
+                const jamEndMatch = clean.match(/jam\s*(\d{1,2})/);
+                if (jamEndMatch) {
+                    let h2 = parseInt(jamEndMatch[1], 10);
+                    if (h1 >= 12 && h2 < 12) h2 += 12; // 16.00 jam 6 -> 18.00
+                    const end = h2 * 60;
+                    if (end > start) {
+                        return { start, end, isExact: true, label: timeStr };
+                    }
+                }
+                return { start, end: start + 60, isExact: true, label: timeStr };
+            }
+
+            // 2. Pola "Jam X" tanpa menit (misal "Jam 2", "Jam 2 siang", "Jam 6 sore", "10 pagi")
+            const jamMatch = clean.match(/(?:jam\s*(\d{1,2})|(\d{1,2})\s*(?:pagi|siang|sore|malam))/);
+            if (jamMatch) {
+                let h = parseInt(jamMatch[1] || jamMatch[2], 10);
+                if (clean.includes('pagi')) {
+                    if (h === 12) h = 0;
+                } else if (clean.includes('siang') || clean.includes('sore') || clean.includes('malam')) {
+                    if (h < 12) h += 12;
+                } else {
+                    // Default Fotografi: "Jam 2" tanpa keterangan biasanya 14:00 siang
+                    if (h >= 1 && h <= 6) h += 12;
+                }
+                const start = h * 60;
+                return { start, end: start + 60, isExact: true, label: timeStr };
+            }
+
+            // 3. Keterangan umum ("Pagi")
+            if (clean.includes('pagi')) {
+                return { start: 480, end: 540, isExact: false, label: timeStr };
+            }
+
+            return { start: 9999, end: 9999, isExact: false, label: timeStr };
+        }
+
+        function formatMinutesToHHMM(mins) {
+            const h = Math.floor(mins / 60).toString().padStart(2, '0');
+            const m = (mins % 60).toString().padStart(2, '0');
+            return `${h}.${m}`;
+        }
+
+        // =========================================================================
+        // 4. DATE PILLS & STATS
+        // =========================================================================
+        function updateStatsAndPills() {
+            document.getElementById('statTotal').textContent = jobs.length;
+
+            let dpCount = 0;
+            let dpSum = 0;
+            jobs.forEach(j => {
+                const dpStr = (j.dp || '').toLowerCase();
+                if (dpStr.includes('dp') || dpStr.includes('lunas')) {
+                    dpCount++;
+                    const numMatch = dpStr.match(/(\d+)\s*k/);
+                    if (numMatch) {
+                        dpSum += parseInt(numMatch[1], 10) * 1000;
+                    } else {
+                        const rawNum = dpStr.replace(/\D/g, '');
+                        if (rawNum) dpSum += parseInt(rawNum, 10);
+                    }
+                }
+            });
+
+            document.getElementById('statDpCount').textContent = dpCount;
+            document.getElementById('statDpTotal').textContent = 'Rp ' + dpSum.toLocaleString('id-ID');
+
+            // Build Distinct Date Pills preserving appearance order
+            const dateCounts = new Map();
+            jobs.forEach(j => {
+                const d = (j.date || 'Tanpa Tanggal').trim();
+                dateCounts.set(d, (dateCounts.get(d) || 0) + 1);
+            });
+
+            const container = document.getElementById('datePillsContainer');
+            const isAllActive = activeDateFilter === 'ALL';
+
+            let html = `
+                <button onclick="selectDatePill('ALL')" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
+                    isAllActive
+                        ? 'bg-amber-500 text-black shadow-sm'
+                        : 'bg-[#2c2c2e] hover:bg-[#3a3a3c] text-zinc-300'
+                }">
+                    <span>Semua</span>
+                    <span class="px-1.5 py-0.2 rounded-md text-[10px] ${isAllActive ? 'bg-black/20 text-black' : 'bg-black/40 text-zinc-400'}">${jobs.length}</span>
+                </button>
+            `;
+
+            dateCounts.forEach((count, dateLabel) => {
+                const isActive = activeDateFilter.toLowerCase() === dateLabel.toLowerCase();
+                html += `
+                    <button onclick="selectDatePill('${escapeAttr(dateLabel)}')" class="px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 ${
+                        isActive
+                            ? 'bg-amber-500 text-black font-bold shadow-sm'
+                            : 'bg-[#2c2c2e] hover:bg-[#3a3a3c] text-zinc-200'
+                    }">
+                        <span>${escapeHTML(dateLabel)}</span>
+                        <span class="px-1.5 py-0.2 rounded-md text-[10px] ${isActive ? 'bg-black/20 text-black' : 'bg-black/40 text-zinc-400'}">${count}</span>
+                    </button>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function selectDatePill(dateLabel) {
+            activeDateFilter = dateLabel;
+            const input = document.getElementById('filterDateInput');
+            const clearBtn = document.getElementById('btnClearDate');
+
+            if (dateLabel === 'ALL') {
+                input.value = '';
+                clearBtn.classList.add('hidden');
+            } else {
+                input.value = dateLabel;
+                clearBtn.classList.remove('hidden');
+            }
+            updateStatsAndPills();
+            applyFilter();
+        }
+
+        function handleDateInput() {
+            const val = document.getElementById('filterDateInput').value.trim();
+            const clearBtn = document.getElementById('btnClearDate');
+            if (val === '') {
+                activeDateFilter = 'ALL';
+                clearBtn.classList.add('hidden');
+            } else {
+                activeDateFilter = val;
+                clearBtn.classList.remove('hidden');
+            }
+            updateStatsAndPills();
+            applyFilter();
+        }
+
+        function resetAllFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterDpSelect').value = 'ALL';
+            selectDatePill('ALL');
+        }
+
+        // =========================================================================
+        // 5. FILTERING, TABLE RENDERING & EMPTY SLOT CHECKER
+        // =========================================================================
+        function applyFilter() {
+            const searchQ = document.getElementById('searchInput').value.toLowerCase().trim();
+            const dateQ = document.getElementById('filterDateInput').value.toLowerCase().trim();
+            const dpQ = document.getElementById('filterDpSelect').value;
+
+            const filtered = jobs.filter(j => {
+                // Date filter
+                if (dateQ && dateQ !== 'all') {
+                    if (!(j.date || '').toLowerCase().includes(dateQ)) return false;
+                }
+
+                // Search query
+                if (searchQ) {
+                    const hay = `${j.date} ${j.time} ${j.client} ${j.event} ${j.platform} ${j.location} ${j.dp}`.toLowerCase();
+                    if (!hay.includes(searchQ)) return false;
+                }
+
+                // DP filter
+                if (dpQ === 'DP_ONLY') {
+                    const d = (j.dp || '').toLowerCase();
+                    if (!d.includes('dp') && !d.includes('lunas')) return false;
+                } else if (dpQ === 'NO_DP') {
+                    const d = (j.dp || '').toLowerCase();
+                    if (d.includes('dp') || d.includes('lunas')) return false;
+                }
+
+                return true;
+            });
+
+            renderTable(filtered);
+            renderSlotChecker(dateQ);
+        }
+
+        function renderTable(list) {
+            const tbody = document.getElementById('tableBody');
+            document.getElementById('recordCount').textContent = `Menampilkan ${list.length} dari ${jobs.length} jadwal`;
+
+            if (list.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="py-10 px-4 text-center text-zinc-500">
+                            <i class="fa-regular fa-calendar-xmark text-2xl mb-2 block text-zinc-600"></i>
+                            Tidak ada jadwal yang cocok dengan filter ini.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = list.map(job => {
+                const dpVal = (job.dp || '-').trim();
+                const isPaid = dpVal.toLowerCase().includes('dp') || dpVal.toLowerCase().includes('lunas');
+                const dpBadge = isPaid
+                    ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"><i class="fa-solid fa-check text-[10px]"></i> ${escapeHTML(dpVal)}</span>`
+                    : `<span class="text-xs text-zinc-500">${escapeHTML(dpVal)}</span>`;
+
+                return `
+                    <tr class="job-row transition">
+                        <td class="py-3 px-3.5 font-medium text-zinc-200 whitespace-nowrap">${escapeHTML(job.date)}</td>
+                        <td class="py-3 px-3.5 font-mono text-xs text-amber-400 whitespace-nowrap">${escapeHTML(job.time)}</td>
+                        <td class="py-3 px-3.5 font-bold text-white whitespace-nowrap">${escapeHTML(job.client)}</td>
+                        <td class="py-3 px-3.5 text-zinc-300 whitespace-nowrap">
+                            ${job.event && job.event !== '-' ? `<span class="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 text-xs">${escapeHTML(job.event)}</span>` : '<span class="text-zinc-600">-</span>'}
+                        </td>
+                        <td class="py-3 px-3.5 text-zinc-300 whitespace-nowrap">${escapeHTML(job.platform || '-')}</td>
+                        <td class="py-3 px-3.5 text-zinc-400 whitespace-nowrap">${escapeHTML(job.location || '-')}</td>
+                        <td class="py-3 px-3.5 whitespace-nowrap">${dpBadge}</td>
+                        <td class="py-3 px-3.5 text-center whitespace-nowrap">
+                            <div class="inline-flex items-center gap-1">
+                                <button onclick="editJob(${job.id})" class="p-1.5 rounded-lg text-zinc-400 hover:text-amber-400 hover:bg-zinc-800 transition" title="Edit Jadwal">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </button>
+                                <button onclick="confirmDeleteJob(${job.id})" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-950/50 transition" title="Hapus Jadwal">
+                                    <i class="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderSlotChecker(dateQ) {
+            const container = document.getElementById('slotCheckerContainer');
+            if (!dateQ || dateQ === 'all') {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            const matchedJobs = jobs.filter(j => (j.date || '').toLowerCase().includes(dateQ));
+
+            // Gunakan label tanggal asli jika cocok persis
+            const displayDateLabel = matchedJobs.length > 0 ? matchedJobs[0].date : document.getElementById('filterDateInput').value;
+            lastCheckedDateLabel = displayDateLabel;
+
+            document.getElementById('slotCheckerTitle').textContent = `Cek Jam Kosong — ${displayDateLabel}`;
+            document.getElementById('occupiedCount').textContent = matchedJobs.length;
+
+            // Sort matched jobs by parsed start time
+            const parsedEntries = matchedJobs.map(j => ({
+                job: j,
+                parsed: parseIndonesianTime(j.time)
+            })).sort((a, b) => a.parsed.start - b.parsed.start);
+
+            // Detect overlaps among exact time entries on this date
+            const overlaps = [];
+            for (let i = 0; i < parsedEntries.length; i++) {
+                if (!parsedEntries[i].parsed.isExact) continue;
+                for (let k = i + 1; k < parsedEntries.length; k++) {
+                    if (!parsedEntries[k].parsed.isExact) continue;
+                    const a = parsedEntries[i];
+                    const b = parsedEntries[k];
+                    if (a.parsed.start < b.parsed.end && b.parsed.start < a.parsed.end) {
+                        overlaps.push(`${a.job.client} (${a.job.time}) & ${b.job.client} (${b.job.time})`);
+                    }
+                }
+            }
+
+            const conflictAlert = document.getElementById('dateConflictAlert');
+            if (overlaps.length > 0) {
+                conflictAlert.classList.remove('hidden');
+                document.getElementById('dateConflictText').innerHTML = `<strong>Perhatian! Ada jadwal bentrok di tanggal ini:</strong><br>${overlaps.map(o => `• ${escapeHTML(o)}`).join('<br>')}`;
+            } else {
+                conflictAlert.classList.add('hidden');
+            }
+
+            // Render Occupied List
+            const filledListEl = document.getElementById('filledSlotsList');
+            if (parsedEntries.length === 0) {
+                filledListEl.innerHTML = `<p class="text-zinc-500 italic py-2">Belum ada booking di tanggal "${escapeHTML(displayDateLabel)}". Semua jam masih kosong!</p>`;
+            } else {
+                filledListEl.innerHTML = parsedEntries.map(({ job, parsed }) => {
+                    const dpTag = (job.dp || '').toLowerCase().includes('dp')
+                        ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">${escapeHTML(job.dp)}</span>`
+                        : '';
+                    return `
+                        <div class="flex items-center justify-between gap-2 bg-[#1c1c1e] px-3 py-2 rounded-lg border border-[#2c2c2e]">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="font-mono text-xs text-amber-400 shrink-0">${escapeHTML(job.time)}</span>
+                                <span class="font-semibold text-white truncate">${escapeHTML(job.client)}</span>
+                                ${dpTag}
+                            </div>
+                            <span class="text-[11px] text-zinc-400 shrink-0">${escapeHTML(job.location !== '-' ? job.location : job.platform)}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Compute Hourly Slots from 02:00 to 21:00 (20 hourly blocks: 02:00-03:00 up to 21:00-22:00)
+            const freeSlots = [];
+            for (let hour = 2; hour <= 21; hour++) {
+                const slotStart = hour * 60;
+                const slotEnd = (hour + 1) * 60;
+
+                // Cek apakah bertabrakan dengan sesi mana pun yang waktunya pasti (isExact)
+                const isBusy = parsedEntries.some(({ parsed }) => {
+                    if (!parsed.isExact) return false;
+                    return parsed.start < slotEnd && parsed.end > slotStart;
+                });
+
+                if (!isBusy) {
+                    const label = `${formatMinutesToHHMM(slotStart)} – ${formatMinutesToHHMM(slotEnd)}`;
+                    freeSlots.push(label);
+                }
+            }
+
+            lastComputedFreeSlots = freeSlots;
+            const emptyListEl = document.getElementById('emptySlotsList');
+
+            if (freeSlots.length === 0) {
+                emptyListEl.innerHTML = `<span class="text-xs text-rose-400 italic">Semua slot jam 02.00 – 22.00 sudah penuh!</span>`;
+            } else {
+                emptyListEl.innerHTML = freeSlots.map(slot => `
+                    <button onclick="bookFreeSlot('${escapeAttr(slot)}', '${escapeAttr(displayDateLabel)}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-mono transition flex items-center gap-1">
+                        <i class="fa-solid fa-plus text-[10px]"></i>
+                        <span>${slot}</span>
+                    </button>
+                `).join('');
+            }
+        }
+
+        function bookFreeSlot(timeSlot, dateLabel) {
+            document.getElementById('jobId').value = '';
+            document.getElementById('modalTitle').textContent = 'Booking Jam Kosong';
+            document.getElementById('formDate').value = dateLabel;
+            document.getElementById('formTime').value = timeSlot;
+            document.getElementById('formClient').value = '';
+            document.getElementById('formEvent').value = 'Wisuda';
+            document.getElementById('formPlatform').value = 'Wa';
+            document.getElementById('formLocation').value = 'Villa nirwana';
+            document.getElementById('formDp').value = '-';
+            document.getElementById('jobModal').classList.remove('hidden');
+        }
+
+        function copyEmptySlotsWA() {
+            if (!lastCheckedDateLabel) return;
+            const slotLines = lastComputedFreeSlots.length > 0
+                ? lastComputedFreeSlots.map(s => `• Pukul ${s}`).join('\n')
+                : '• Mohon maaf, semua slot jam sudah penuh.';
+
+            const text = `📸 *INFO SLOT KOSONG JADWAL FOTO*\nTanggal: *${lastCheckedDateLabel}*\n\nJam yang masih tersedia:\n${slotLines}\n\nSilakan konfirmasi jam pilihan kakak sebelum terisi klien lain ya ✨`;
+
+            // Fallback copy via textarea for iframe compatibility
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Slot kosong ${lastCheckedDateLabel} disalin untuk WhatsApp!`);
+            } catch (e) {
+                showToast('Gagal menyalin teks');
+            }
+            document.body.removeChild(temp);
+        }
+
+        // =========================================================================
+        // 6. CRUD MODAL & BACKUP
+        // =========================================================================
+        function openModal() {
+            document.getElementById('jobId').value = '';
+            document.getElementById('modalTitle').textContent = 'Tambah Jadwal Baru';
+            document.getElementById('jobForm').reset();
+            if (activeDateFilter !== 'ALL') {
+                document.getElementById('formDate').value = activeDateFilter;
+            }
+            document.getElementById('jobModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('jobModal').classList.add('hidden');
+        }
+
+        function editJob(id) {
+            const job = jobs.find(j => j.id === id);
+            if (!job) return;
+            document.getElementById('jobId').value = job.id;
+            document.getElementById('modalTitle').textContent = `Edit Jadwal — ${job.client}`;
+            document.getElementById('formDate').value = job.date;
+            document.getElementById('formTime').value = job.time;
+            document.getElementById('formClient').value = job.client;
+            document.getElementById('formEvent').value = job.event === '-' ? '' : job.event;
+            document.getElementById('formPlatform').value = job.platform === '-' ? '' : job.platform;
+            document.getElementById('formLocation').value = job.location === '-' ? '' : job.location;
+            document.getElementById('formDp').value = job.dp;
+            document.getElementById('jobModal').classList.remove('hidden');
+        }
+
+        function saveJob(e) {
+            e.preventDefault();
+            const idVal = document.getElementById('jobId').value;
+            const entry = {
+                id: idVal ? parseInt(idVal, 10) : (jobs.length > 0 ? Math.max(...jobs.map(j => j.id)) + 1 : 1),
+                date: document.getElementById('formDate').value.trim() || '-',
+                time: document.getElementById('formTime').value.trim() || '-',
+                client: document.getElementById('formClient').value.trim(),
+                event: document.getElementById('formEvent').value.trim() || '-',
+                platform: document.getElementById('formPlatform').value.trim() || '-',
+                location: document.getElementById('formLocation').value.trim() || '-',
+                dp: document.getElementById('formDp').value.trim() || '-'
+            };
+
+            if (idVal) {
+                const idx = jobs.findIndex(j => j.id === parseInt(idVal, 10));
+                if (idx !== -1) jobs[idx] = entry;
+                showToast(`Jadwal ${entry.client} diperbarui`);
+            } else {
+                jobs.push(entry);
+                showToast(`Jadwal ${entry.client} ditambahkan`);
+            }
+
+            saveJobs();
+            closeModal();
+            updateStatsAndPills();
+            applyFilter();
+        }
+
+        function confirmDeleteJob(id) {
+            const job = jobs.find(j => j.id === id);
+            if (!job) return;
+            openConfirm(
+                'Hapus Jadwal?',
+                `Hapus jadwal foto atas nama "${job.client}" pada ${job.date}?`,
+                () => {
+                    jobs = jobs.filter(j => j.id !== id);
+                    saveJobs();
+                    updateStatsAndPills();
+                    applyFilter();
+                    showToast(`Jadwal ${job.client} dihapus`);
+                }
+            );
+        }
+
+        function confirmResetData() {
+            openConfirm(
+                'Reset ke 28 Data Awal?',
+                'Semua perubahan akan dikembalikan ke 28 data jadwal asli Anda.',
+                () => {
+                    jobs = JSON.parse(JSON.stringify(INITIAL_JOBS));
+                    saveJobs();
+                    resetAllFilters();
+                    showToast('Data dikembalikan ke 28 jadwal awal');
+                }
+            );
+        }
+
+        function exportData() {
+            const blob = new Blob([JSON.stringify(jobs, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `LensaStudio-Jadwal-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Backup JSON berhasil diunduh');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!Array.isArray(imported)) throw new Error('Invalid format');
+                    jobs = imported;
+                    saveJobs();
+                    updateStatsAndPills();
+                    applyFilter();
+                    showToast(`Berhasil restore ${imported.length} jadwal`);
+                } catch (err) {
+                    showToast('File JSON tidak valid');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // =========================================================================
+        // 7. UI UTILITIES
+        // =========================================================================
+        let confirmAction = null;
+        function openConfirm(title, msg, onYes) {
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = msg;
+            confirmAction = onYes;
+            document.getElementById('confirmYesBtn').onclick = () => {
+                if (confirmAction) confirmAction();
+                closeConfirmModal();
+            };
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            confirmAction = null;
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastText').textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2800);
+        }
+
+        function escapeHTML(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeAttr(str) {
+            return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        // Boot App
+        loadJobs();
+        updateStatsAndPills();
+        applyFilter();
+    </script>
+</body>
+</html>

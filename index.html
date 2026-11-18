@@ -239,7 +239,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs text-zinc-400 mb-1">Tanggal *</label>
-                        <input type="text" id="formDate" required placeholder="Cth: Sabtu, 28 Nov" class="apple-input w-full p-2.5 rounded-xl text-sm">
+                        <input type="date" id="formDate" required class="apple-input w-full p-2.5 rounded-xl text-sm">
                     </div>
                     <div>
                         <label class="block text-xs text-zinc-400 mb-1">Waktu *</label>
@@ -457,6 +457,66 @@
         // =========================================================================
         // 4. DATE PILLS & STATS
         // =========================================================================
+        const MONTHS_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const MONTHS_ID_MAP = {
+            jan: 0, januari: 0, feb: 1, februari: 1, mar: 2, maret: 2,
+            apr: 3, april: 3, mei: 4, jun: 5, juni: 5, jul: 6, juli: 6,
+            agu: 7, agustus: 7, sep: 8, september: 8, okt: 9, oktober: 9,
+            nov: 10, november: 10, des: 11, desember: 11
+        };
+        const WEEKDAYS_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+        function formatJobDate(dateValue) {
+            const isoDate = (dateValue || '').trim();
+            const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (!match) return dateValue || '-';
+
+            const year = parseInt(match[1], 10);
+            const month = parseInt(match[2], 10) - 1;
+            const day = parseInt(match[3], 10);
+            const date = new Date(year, month, day);
+            if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) return dateValue;
+            return `${WEEKDAYS_ID[date.getDay()]}, ${day} ${MONTHS_ID[month]}`;
+        }
+
+        function toDateInputValue(dateValue) {
+            const value = (dateValue || '').trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                return formatJobDate(value) === value ? '' : value;
+            }
+
+            const match = value.match(/^(?:(?:minggu|senin|selasa|rabu|kamis|jumat|sabtu),?\s*)?(\d{1,2})\s+([a-z]+)$/i);
+            if (!match) return '';
+            const day = parseInt(match[1], 10);
+            const month = MONTHS_ID_MAP[match[2].toLowerCase()];
+            if (month === undefined || day < 1 || day > 31) return '';
+
+            const today = new Date();
+            let date = new Date(today.getFullYear(), month, day);
+            if (date.getMonth() !== month || date.getDate() !== day) {
+                const candidates = [];
+                for (let year = today.getFullYear() - 2; year <= today.getFullYear() + 2; year++) {
+                    const candidate = new Date(year, month, day);
+                    if (candidate.getMonth() === month && candidate.getDate() === day) candidates.push(candidate);
+                }
+                if (candidates.length === 0) return '';
+                candidates.sort((a, b) => Math.abs(a.getTime() - today.getTime()) - Math.abs(b.getTime() - today.getTime()));
+                date = candidates[0];
+            }
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        function dateSortValue(dateValue) {
+            const isoDate = toDateInputValue(dateValue);
+            return isoDate ? new Date(`${isoDate}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
+        }
+
+        function dateMatchesQuery(dateValue, query) {
+            const normalizedQuery = query.toLowerCase();
+            return (dateValue || '').toLowerCase().includes(normalizedQuery)
+                || formatJobDate(dateValue).toLowerCase().includes(normalizedQuery);
+        }
+
         function updateStatsAndPills() {
             document.getElementById('statTotal').textContent = jobs.length;
 
@@ -479,12 +539,13 @@
             document.getElementById('statDpCount').textContent = dpCount;
             document.getElementById('statDpTotal').textContent = 'Rp ' + dpSum.toLocaleString('id-ID');
 
-            // Build Distinct Date Pills preserving appearance order
+            // Build distinct date pills in chronological order.
             const dateCounts = new Map();
             jobs.forEach(j => {
                 const d = (j.date || 'Tanpa Tanggal').trim();
                 dateCounts.set(d, (dateCounts.get(d) || 0) + 1);
             });
+            const sortedDateCounts = [...dateCounts.entries()].sort((a, b) => dateSortValue(a[0]) - dateSortValue(b[0]));
 
             const container = document.getElementById('datePillsContainer');
             const isAllActive = activeDateFilter === 'ALL';
@@ -500,7 +561,7 @@
                 </button>
             `;
 
-            dateCounts.forEach((count, dateLabel) => {
+            sortedDateCounts.forEach(([dateLabel, count]) => {
                 const isActive = activeDateFilter.toLowerCase() === dateLabel.toLowerCase();
                 html += `
                     <button onclick="selectDatePill('${escapeAttr(dateLabel)}')" class="px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 ${
@@ -508,7 +569,7 @@
                             ? 'bg-amber-500 text-black font-bold shadow-sm'
                             : 'bg-[#2c2c2e] hover:bg-[#3a3a3c] text-zinc-200'
                     }">
-                        <span>${escapeHTML(dateLabel)}</span>
+                        <span>${escapeHTML(formatJobDate(dateLabel))}</span>
                         <span class="px-1.5 py-0.2 rounded-md text-[10px] ${isActive ? 'bg-black/20 text-black' : 'bg-black/40 text-zinc-400'}">${count}</span>
                     </button>
                 `;
@@ -526,7 +587,7 @@
                 input.value = '';
                 clearBtn.classList.add('hidden');
             } else {
-                input.value = dateLabel;
+                input.value = formatJobDate(dateLabel);
                 clearBtn.classList.remove('hidden');
             }
             updateStatsAndPills();
@@ -564,12 +625,12 @@
             const filtered = jobs.filter(j => {
                 // Date filter
                 if (dateQ && dateQ !== 'all') {
-                    if (!(j.date || '').toLowerCase().includes(dateQ)) return false;
+                    if (!dateMatchesQuery(j.date, dateQ)) return false;
                 }
 
                 // Search query
                 if (searchQ) {
-                    const hay = `${j.date} ${j.time} ${j.client} ${j.event} ${j.platform} ${j.location} ${j.dp}`.toLowerCase();
+                    const hay = `${j.date} ${formatJobDate(j.date)} ${j.time} ${j.client} ${j.event} ${j.platform} ${j.location} ${j.dp}`.toLowerCase();
                     if (!hay.includes(searchQ)) return false;
                 }
 
@@ -605,7 +666,8 @@
                 return;
             }
 
-            tbody.innerHTML = list.map(job => {
+            const sortedList = [...list].sort((a, b) => dateSortValue(a.date) - dateSortValue(b.date));
+            tbody.innerHTML = sortedList.map(job => {
                 const dpVal = (job.dp || '-').trim();
                 const isPaid = dpVal.toLowerCase().includes('dp') || dpVal.toLowerCase().includes('lunas');
                 const dpBadge = isPaid
@@ -614,7 +676,7 @@
 
                 return `
                     <tr class="job-row transition">
-                        <td class="py-3 px-3.5 font-medium text-zinc-200 whitespace-nowrap">${escapeHTML(job.date)}</td>
+                        <td class="py-3 px-3.5 font-medium text-zinc-200 whitespace-nowrap">${escapeHTML(formatJobDate(job.date))}</td>
                         <td class="py-3 px-3.5 font-mono text-xs text-amber-400 whitespace-nowrap">${escapeHTML(job.time)}</td>
                         <td class="py-3 px-3.5 font-bold text-white whitespace-nowrap">${escapeHTML(job.client)}</td>
                         <td class="py-3 px-3.5 text-zinc-300 whitespace-nowrap">
@@ -646,10 +708,10 @@
             }
 
             container.classList.remove('hidden');
-            const matchedJobs = jobs.filter(j => (j.date || '').toLowerCase().includes(dateQ));
+            const matchedJobs = jobs.filter(j => dateMatchesQuery(j.date, dateQ));
 
             // Gunakan label tanggal asli jika cocok persis
-            const displayDateLabel = matchedJobs.length > 0 ? matchedJobs[0].date : document.getElementById('filterDateInput').value;
+            const displayDateLabel = matchedJobs.length > 0 ? formatJobDate(matchedJobs[0].date) : document.getElementById('filterDateInput').value;
             lastCheckedDateLabel = displayDateLabel;
 
             document.getElementById('slotCheckerTitle').textContent = `Cek Jam Kosong — ${displayDateLabel}`;
@@ -741,7 +803,7 @@
         function bookFreeSlot(timeSlot, dateLabel) {
             document.getElementById('jobId').value = '';
             document.getElementById('modalTitle').textContent = 'Booking Jam Kosong';
-            document.getElementById('formDate').value = dateLabel;
+            document.getElementById('formDate').value = toDateInputValue(dateLabel);
             document.getElementById('formTime').value = timeSlot;
             document.getElementById('formClient').value = '';
             document.getElementById('formEvent').value = 'Wisuda';
@@ -781,7 +843,7 @@
             document.getElementById('modalTitle').textContent = 'Tambah Jadwal Baru';
             document.getElementById('jobForm').reset();
             if (activeDateFilter !== 'ALL') {
-                document.getElementById('formDate').value = activeDateFilter;
+                document.getElementById('formDate').value = toDateInputValue(activeDateFilter);
             }
             document.getElementById('jobModal').classList.remove('hidden');
         }
@@ -795,7 +857,7 @@
             if (!job) return;
             document.getElementById('jobId').value = job.id;
             document.getElementById('modalTitle').textContent = `Edit Jadwal — ${job.client}`;
-            document.getElementById('formDate').value = job.date;
+            document.getElementById('formDate').value = toDateInputValue(job.date);
             document.getElementById('formTime').value = job.time;
             document.getElementById('formClient').value = job.client;
             document.getElementById('formEvent').value = job.event === '-' ? '' : job.event;

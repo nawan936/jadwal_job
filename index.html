@@ -80,7 +80,7 @@
                     <span class="hidden md:inline">Restore</span>
                     <input type="file" id="importFile" onchange="importData(event)" class="hidden" accept=".json">
                 </label>
-                <button onclick="confirmResetData()" class="bg-[#1c1c1e] hover:bg-rose-950/50 border border-[#3a3a3c] hover:border-rose-800 text-zinc-400 hover:text-rose-400 px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5" title="Reset ke 28 Data Awal">
+                <button onclick="confirmResetData()" class="bg-[#1c1c1e] hover:bg-rose-950/50 border border-[#3a3a3c] hover:border-rose-800 text-zinc-400 hover:text-rose-400 px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5" title="Reset ke Data Awal">
                     <i class="fa-solid fa-rotate-left"></i>
                     <span class="hidden lg:inline">Reset Awal</span>
                 </button>
@@ -130,7 +130,7 @@
                     <i class="fa-regular fa-calendar text-amber-400"></i>
                     Pilih Tanggal untuk Filter & Cek Jam Kosong:
                 </span>
-                <span id="recordCount" class="text-xs text-zinc-500">28 jadwal</span>
+                <span id="recordCount" class="text-xs text-zinc-500">29 jadwal</span>
             </div>
             <div id="datePillsContainer" class="flex flex-wrap gap-1.5">
                 <!-- Rendered dynamically -->
@@ -305,9 +305,9 @@
 
     <script>
         // =========================================================================
-        // 1. EXACT 28 SCHEDULE ENTRIES (CLEANED DATES & EXTRACTED DP STATUS)
+        // 1. INITIAL SCHEDULE ENTRIES (RESTORED FROM LensaStudio BACKUP)
         // =========================================================================
-        const STORAGE_KEY = 'nawan_jobs_v3';
+        const STORAGE_KEY = 'nawan_jobs_v4';
 
         const INITIAL_JOBS = [
             { id: 1,  date: "Sabtu, 14 Nov",  time: "06.00 – 07.00",           client: "Appa",           event: "Wisuda",  platform: "Ig",        location: "Villa nirwana",    dp: "-" },
@@ -321,23 +321,24 @@
             { id: 9,  date: "Minggu, 15 Nov", time: "Pagi",                    client: "Rika rahayu",    event: "-",       platform: "-",         location: "-",                dp: "-" },
             { id: 10, date: "Minggu, 15 Nov", time: "10 pagi (10.00)",         client: "Nanda",          event: "Wisuda",  platform: "Wa",        location: "Villa",            dp: "-" },
             { id: 11, date: "Senin, 16 Nov",  time: "-",                       client: "Ry",             event: "Wisuda",  platform: "Instagram", location: "-",                dp: "-" },
-            { id: 12, date: "Sabtu, 21 Nov",  time: "03.00 – 04.00",           client: "Ratu",           event: "Wisuda",  platform: "Ig",        location: "-",                dp: "-" },
-            { id: 13, date: "Sabtu, 21 Nov",  time: "02.00 – 03.00",           client: "Dita",           event: "Wisuda",  platform: "TikTok",    location: "-",                dp: "-" },
-            { id: 14, date: "Sabtu, 21 Nov",  time: "04.00 – 05.00",           client: "Faza",           event: "Wisuda",  platform: "TikTok",    location: "Kraton",           dp: "DP 100k" },
-            { id: 15, date: "Sabtu, 21 Nov",  time: "05.00 – 06.00",           client: "Nandini",        event: "Wisuda",  platform: "UMB",       location: "Villa nirwana",    dp: "DP 100k" },
-            { id: 16, date: "Sabtu, 21 Nov",  time: "06.00 - 07.30",           client: "Salsa",          event: "Wisuda",  platform: "Instagram", location: "Villa nirwana",    dp: "DP 100k" },
-            { id: 17, date: "Sabtu, 21 Nov",  time: "07.00 - 08.30",           client: "Yuni",           event: "Wisuda",  platform: "Instagram", location: "Kantor walikota",  dp: "DP 100k" },
+            { id: 12, date: "Sabtu, 21 Nov",  time: "15.00 – 16.00",           client: "Ratu",           event: "Wisuda",  platform: "Ig",        location: "-",                dp: "-" },
+            { id: 13, date: "Sabtu, 21 Nov",  time: "14.00 – 15.00",           client: "Dita",           event: "Wisuda",  platform: "TikTok",    location: "-",                dp: "-" },
+            { id: 14, date: "Sabtu, 21 Nov",  time: "16.00 – 17.00",           client: "Faza",           event: "Wisuda",  platform: "TikTok",    location: "Kraton",           dp: "DP 100k" },
+            { id: 15, date: "Sabtu, 21 Nov",  time: "17.00 – 18.00",           client: "Nandini",        event: "Wisuda",  platform: "UMB",       location: "Villa nirwana",    dp: "DP 100k" },
+            { id: 16, date: "Sabtu, 21 Nov",  time: "18.00 - 19.00",           client: "Salsa",          event: "Wisuda",  platform: "Instagram", location: "Villa nirwana",    dp: "DP 100k" },
+            { id: 17, date: "Sabtu, 21 Nov",  time: "19.00 - 20.00",           client: "Yuni",           event: "Wisuda",  platform: "Instagram", location: "Kantor walikota",  dp: "DP 100k" },
             { id: 18, date: "Sabtu, 20 Nov",  time: "04.30",                   client: "Nur",            event: "Wisuda",  platform: "Instagram", location: "-",                dp: "-" },
-            { id: 19, date: "Sabtu, 28 Nov",  time: "Jam 2 (14.00)",           client: "Indri",          event: "Wisuda",  platform: "TikTok",    location: "-",                dp: "-" },
             { id: 20, date: "Sabtu, 28 Nov",  time: "16.00 (4 Sore)",          client: "Fan",            event: "Wisuda",  platform: "Instagram", location: "Villa nirwana",    dp: "-" },
             { id: 21, date: "Sabtu, 28 Nov",  time: "17.00 (Jam 5)",           client: "Yun",            event: "Wisuda",  platform: "Wa",        location: "-",                dp: "-" },
-            { id: 22, date: "Sabtu, 28 Nov",  time: "16.00 - 18.00 (jam 6)",   client: "Hardiyanti",     event: "Wisuda",  platform: "Wa",        location: "-",                dp: "-" },
+            { id: 22, date: "Sabtu, 28 Nov",  time: "18.00-19.00",             client: "Hardiyanti",     event: "Wisuda",  platform: "Wa",        location: "Villa nirwana",    dp: "Lunas" },
             { id: 23, date: "Sabtu, 28 Nov",  time: "15.00",                   client: "Eby",            event: "Wisuda",  platform: "TikTok",    location: "-",                dp: "DP 100k" },
-            { id: 24, date: "Sabtu, 28 Nov",  time: "Jam 2 siang (14.00)",     client: "Anisa",          event: "Wisuda",  platform: "Wa",        location: "-",                dp: "DP 100k" },
-            { id: 25, date: "Sabtu, 28 Nov",  time: "Pagi",                    client: "Lylyw",          event: "Wisuda",  platform: "Tiktok",    location: "-",                dp: "-" },
+            { id: 24, date: "Sabtu, 28 Nov",  time: "Jam 2 siang (14.00)",     client: "Anisa",          event: "Wisuda",  platform: "Wa",        location: "Kantor Walikota", dp: "DP 100k" },
+            { id: 25, date: "Sabtu, 28 Nov",  time: "Pagi",                    client: "Lylyw",          event: "Wisuda",  platform: "Tiktok",    location: "Villa nirwana",    dp: "-" },
             { id: 26, date: "Sabtu, 19 Des",  time: "-",                       client: "Wa ode septiya", event: "Wisuda",  platform: "Ig",        location: "-",                dp: "-" },
             { id: 27, date: "Sabtu, 19 Des",  time: "-",                       client: "Nahu",           event: "Wisuda",  platform: "TikTok",    location: "-",                dp: "-" },
-            { id: 28, date: "Rabu, 23 Des",   time: "-",                       client: "Yusrida",        event: "Wedding", platform: "Wa",        location: "-",                dp: "-" }
+            { id: 28, date: "Rabu, 23 Des",   time: "-",                       client: "Yusrida",        event: "Wedding", platform: "Wa",        location: "-",                dp: "-" },
+            { id: 29, date: "Jumat, 18 Des",  time: "18.00-19.00",             client: "Feni febrianti", event: "Prewed", platform: "Wa",       location: "Hotel zenit",      dp: "Lunas" },
+            { id: 30, date: "Sabtu, 19 Des",  time: "-",                       client: "Azana husni",    event: "Wisuda",  platform: "Wa",        location: "-",                dp: "-" }
         ];
 
         let jobs = [];
@@ -932,13 +933,13 @@
 
         function confirmResetData() {
             openConfirm(
-                'Reset ke 28 Data Awal?',
-                'Semua perubahan akan dikembalikan ke 28 data jadwal asli Anda.',
+                'Reset ke Data Awal?',
+                'Semua perubahan akan dikembalikan ke 29 data jadwal dari backup Anda.',
                 () => {
                     jobs = JSON.parse(JSON.stringify(INITIAL_JOBS));
                     saveJobs();
                     resetAllFilters();
-                    showToast('Data dikembalikan ke 28 jadwal awal');
+                    showToast('Data dikembalikan ke 29 jadwal backup');
                 }
             );
         }

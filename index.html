@@ -354,7 +354,8 @@
                 if (raw) {
                     const parsed = JSON.parse(raw);
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        jobs = parsed;
+                        jobs = parsed.map(normalizeStoredJob);
+                        saveJobs();
                         return;
                     }
                 }
@@ -465,6 +466,15 @@
             nov: 10, november: 10, des: 11, desember: 11
         };
         const WEEKDAYS_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+        function normalizeStoredJob(job) {
+            if (!job || typeof job !== 'object') return job;
+            const dateValue = (job.date || '').trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                return { ...job, date: formatJobDate(dateValue) };
+            }
+            return { ...job, date: dateValue || '-' };
+        }
 
         function formatJobDate(dateValue) {
             const isoDate = (dateValue || '').trim();
@@ -870,9 +880,17 @@
         function saveJob(e) {
             e.preventDefault();
             const idVal = document.getElementById('jobId').value;
+            const dateInput = document.getElementById('formDate').value.trim();
+            const normalizedDate = dateInput
+                ? formatJobDate(dateInput)
+                : '-';
+            if (normalizedDate === '-') {
+                showToast('Tanggal jadwal harus diisi');
+                return;
+            }
             const entry = {
                 id: idVal ? parseInt(idVal, 10) : (jobs.length > 0 ? Math.max(...jobs.map(j => j.id)) + 1 : 1),
-                date: document.getElementById('formDate').value.trim() || '-',
+                date: normalizedDate,
                 time: document.getElementById('formTime').value.trim() || '-',
                 client: document.getElementById('formClient').value.trim(),
                 event: document.getElementById('formEvent').value.trim() || '-',
@@ -944,7 +962,7 @@
                 try {
                     const imported = JSON.parse(e.target.result);
                     if (!Array.isArray(imported)) throw new Error('Invalid format');
-                    jobs = imported;
+                    jobs = imported.map(normalizeStoredJob);
                     saveJobs();
                     updateStatsAndPills();
                     applyFilter();

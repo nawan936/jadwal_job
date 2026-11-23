@@ -308,6 +308,7 @@
         // 1. INITIAL SCHEDULE ENTRIES (RESTORED FROM LensaStudio BACKUP)
         // =========================================================================
         const STORAGE_KEY = 'nawan_jobs_v4';
+        const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbzxOAkZvZcCp_ImUWJcTSc7LZnigmKKKDIeBQemXvaK-g5ygjMt3Da8DKZUxmDRkUfq/exec';
 
         const INITIAL_JOBS = [
             { id: 1,  date: "Sabtu, 14 Nov",  time: "06.00 – 07.00",           client: "Appa",           event: "Wisuda",  platform: "Ig",        location: "Villa nirwana",    dp: "-" },
@@ -345,26 +346,53 @@
         let activeDateFilter = 'ALL';
         let lastComputedFreeSlots = [];
         let lastCheckedDateLabel = '';
+        let syncQueue = Promise.resolve();
 
         // =========================================================================
         // 2. STORAGE & INIT
         // =========================================================================
-        function loadJobs() {
+        async function loadJobs() {
+            let hasLocalData = false;
+            let localJobs = [];
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        jobs = parsed.map(normalizeStoredJob);
-                        saveJobs();
-                        return;
+                    if (Array.isArray(parsed)) {
+                        hasLocalData = true;
+                        localJobs = parsed.map(normalizeStoredJob);
                     }
                 }
             } catch (e) {
                 console.error(e);
             }
-            jobs = JSON.parse(JSON.stringify(INITIAL_JOBS));
-            saveJobs();
+
+            try {
+                const response = await fetch(GOOGLE_SHEETS_API_URL, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const cloudJobs = await response.json();
+                if (!Array.isArray(cloudJobs)) throw new Error('Format data Google Sheets tidak valid');
+
+                if (cloudJobs.length > 0) {
+                    jobs = cloudJobs.map(normalizeStoredJob);
+                } else if (hasLocalData) {
+                    jobs = localJobs;
+                    if (jobs.length > 0) await syncJobsToSheets(jobs);
+                } else {
+                    jobs = JSON.parse(JSON.stringify(INITIAL_JOBS));
+                    await syncJobsToSheets(jobs);
+                }
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+            } catch (e) {
+                console.error('Gagal memuat data Google Sheets:', e);
+                jobs = hasLocalData ? localJobs : JSON.parse(JSON.stringify(INITIAL_JOBS));
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+                } catch (storageError) {
+                    console.error('Gagal menyimpan data lokal:', storageError);
+                }
+                showToast('Google Sheets tidak dapat diakses; memakai data perangkat ini');
+            }
         }
 
         function saveJobs() {
@@ -372,6 +400,30 @@
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
             } catch (e) {
                 showToast('Gagal menyimpan ke browser');
+                console.error('Gagal menyimpan data lokal:', e);
+                return;
+            }
+
+            const snapshot = JSON.stringify(jobs);
+            syncQueue = syncQueue
+                .then(() => syncJobsToSheets(JSON.parse(snapshot)))
+                .catch(error => {
+                    console.error('Gagal menyinkronkan data Google Sheets:', error);
+                    showToast('Tersimpan di perangkat, tetapi gagal sinkron ke Google Sheets');
+                });
+        }
+
+        async function syncJobsToSheets(jobList) {
+            const response = await fetch(GOOGLE_SHEETS_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(jobList)
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'Google Sheets menolak penyimpanan');
             }
         }
 
@@ -1021,9 +1073,10 @@
         }
 
         // Boot App
-        loadJobs();
-        updateStatsAndPills();
-        applyFilter();
+        loadJobs().then(() => {
+            updateStatsAndPills();
+            applyFilter();
+        });
     </script>
 </body>
 </html>

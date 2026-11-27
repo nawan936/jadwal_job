@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LensaStudio — Jadwal Job Foto & Cek Jam Kosong</title>
+    <title>NawanFrame — Jadwal Job Foto & Cek Jam Kosong</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
@@ -61,7 +61,7 @@
                     <i class="fa-solid fa-camera-retro text-lg"></i>
                 </div>
                 <div>
-                    <h1 class="font-bold text-lg tracking-tight text-white">Lensa<span class="text-amber-400">Studio</span></h1>
+                    <h1 class="font-bold text-lg tracking-tight text-white">Nawan<span class="text-amber-400">Frame</span></h1>
                     <p class="text-xs text-zinc-400">Jadwal Pemotretan & Cek Slot Jam Kosong</p>
                 </div>
             </div>
@@ -305,7 +305,7 @@
 
     <script>
         // =========================================================================
-        // 1. INITIAL SCHEDULE ENTRIES (RESTORED FROM LensaStudio BACKUP)
+        // 1. INITIAL SCHEDULE ENTRIES (RESTORED FROM NawanFrame BACKUP)
         // =========================================================================
         const STORAGE_KEY = 'nawan_jobs_v4';
         const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbzxOAkZvZcCp_ImUWJcTSc7LZnigmKKKDIeBQemXvaK-g5ygjMt3Da8DKZUxmDRkUfq/exec';
@@ -1015,7 +1015,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `LensaStudio-Jadwal-${new Date().toISOString().slice(0, 10)}.json`;
+            a.download = `NawanFrame-Jadwal-${new Date().toISOString().slice(0, 10)}.json`;
             a.click();
             URL.revokeObjectURL(url);
             showToast('Backup JSON berhasil diunduh');
